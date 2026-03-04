@@ -61,5 +61,5 @@ docker run -d \
     sleep infinity
 
 echo "Container '${CONTAINER_NAME}' started."
-echo "Run ./into.sh to get a shell, or run Android Studio with:"
-echo "  docker exec -it ${CONTAINER_NAME} studio.sh"
+echo "Run ./into.sh to get a shell, or launch IntelliJ IDEA with:"
+echo "  docker exec -it ${CONTAINER_NAME} idea.sh"
