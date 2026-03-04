@@ -3,12 +3,21 @@ set -e
 
 CONTAINER_NAME="watch-dev"
 IMAGE_NAME="watch-dev"
+REGISTRY_IMAGE="ghcr.io/manumnoha-sys/watch-dev:latest"
+CONTAINER_USER="manu.mohan"
 PROJECTS_DIR="${HOME}/watch-projects"
 
 # Create persistent dirs on host if they don't exist
 mkdir -p "${PROJECTS_DIR}"
 mkdir -p "${HOME}/.android-docker"
 mkdir -p "${HOME}/.gradle-docker"
+
+# Pull image from registry if not available locally
+if ! docker image inspect "${IMAGE_NAME}" &>/dev/null; then
+    echo "Image '${IMAGE_NAME}' not found locally. Pulling from registry..."
+    docker pull "${REGISTRY_IMAGE}"
+    docker tag "${REGISTRY_IMAGE}" "${IMAGE_NAME}"
+fi
 
 # Allow local X11 connections
 if xhost &>/dev/null; then
@@ -44,9 +53,9 @@ docker run -d \
     --network host \
     -e DISPLAY=:0 \
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-    -v "${PROJECTS_DIR}:/home/$(whoami)/projects" \
-    -v "${HOME}/.android-docker:/home/$(whoami)/.android" \
-    -v "${HOME}/.gradle-docker:/home/$(whoami)/.gradle" \
+    -v "${PROJECTS_DIR}:/home/${CONTAINER_USER}/projects" \
+    -v "${HOME}/.android-docker:/home/${CONTAINER_USER}/.android" \
+    -v "${HOME}/.gradle-docker:/home/${CONTAINER_USER}/.gradle" \
     "${KVM_FLAGS[@]}" \
     "${IMAGE_NAME}" \
     sleep infinity
