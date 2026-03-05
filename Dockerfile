@@ -39,6 +39,18 @@ RUN wget -q --show-progress --progress=bar:force \
     mv /opt/idea-IC-* ${IDEA_HOME} && \
     rm /tmp/idea.tar.gz
 
+# Install native arm64 adb (Google's platform-tools zip only ships x86_64)
+# Also install qemu-user-static + x86_64 libc so the x86_64 aapt2 binary can run on arm64.
+# Pin ports.ubuntu.com to arm64 only BEFORE adding amd64 arch, otherwise apt tries to
+# fetch amd64 packages from ports.ubuntu.com which doesn't have them (404).
+RUN sed -i 's|^deb http://ports.ubuntu.com|deb [arch=arm64] http://ports.ubuntu.com|g' /etc/apt/sources.list && \
+    dpkg --add-architecture amd64 && \
+    echo 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main universe' > /etc/apt/sources.list.d/amd64.list && \
+    echo 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main universe' >> /etc/apt/sources.list.d/amd64.list && \
+    echo 'deb [arch=amd64] http://security.ubuntu.com/ubuntu jammy-security main universe' >> /etc/apt/sources.list.d/amd64.list && \
+    apt-get update && apt-get install -y -q adb qemu-user-static libc6:amd64 && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install Android SDK command-line tools
 RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
     wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
@@ -56,10 +68,22 @@ RUN yes | sdkmanager --licenses && \
         "platforms;android-34" \
         "system-images;android-34;android-wear;arm64-v8a"
 
+# Replace x86_64 adb from SDK with native arm64 binary
+RUN cp /usr/bin/adb ${ANDROID_HOME}/platform-tools/adb
+
+# Create aapt2 wrapper: SDK ships x86_64-only aapt2; run it via qemu-user-static
+RUN printf '#!/bin/sh\nexec qemu-x86_64-static %s/build-tools/35.0.0/aapt2 "$@"\n' \
+        "${ANDROID_HOME}" > /usr/local/bin/aapt2 && \
+    chmod +x /usr/local/bin/aapt2
+
 # Set ownership
 RUN chown -R ${USER_NAME}:${USER_NAME} ${ANDROID_HOME} ${IDEA_HOME}
 
 USER ${USER_NAME}
 WORKDIR /home/${USER_NAME}
+
+# Configure Gradle to use the local aapt2 wrapper for all projects
+RUN mkdir -p ~/.gradle && \
+    echo 'android.aapt2FromMavenOverride=/usr/local/bin/aapt2' >> ~/.gradle/gradle.properties
 
 CMD ["/bin/bash", "-i"]
