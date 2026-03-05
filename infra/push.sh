@@ -27,9 +27,10 @@ docker push "${REGISTRY_IMAGE}"
 
 # Commit and push updated files
 echo "Pushing updated files to GitHub..."
-cd "$(dirname "$0")"
-git add Dockerfile run.sh SETUP.md
-git diff --cached --quiet || git commit -m "Rebuild for arm64: IntelliJ IDEA $(date +%Y-%m-%d)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${REPO_ROOT}"
+git add infra/
+git diff --cached --quiet || git commit -m "infra: rebuild Docker image $(date +%Y-%m-%d)"
 git remote set-url origin "https://manumnoha-sys:${GITHUB_TOKEN}@github.com/manumnoha-sys/smartwatch"
 git push origin main
 git remote set-url origin "https://github.com/manumnoha-sys/smartwatch"

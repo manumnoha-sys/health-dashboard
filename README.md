@@ -1,25 +1,55 @@
-# watch-dev
+# Samsung Galaxy Watch App
 
-> Docker-based development environment for **Samsung Galaxy Watch (Wear OS)** apps on **Linux arm64 (aarch64)** hosts.
-
-[![Docker Image](https://ghcr-badge.egpl.dev/manumnoha-sys/watch-dev/size)](https://github.com/manumnoha-sys/smartwatch/pkgs/container/watch-dev)
-[![Image](https://img.shields.io/badge/ghcr.io-watch--dev-blue?logo=docker)](https://github.com/manumnoha-sys/smartwatch/pkgs/container/watch-dev)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-watch--dev-blue?logo=docker)](https://github.com/manumnoha-sys/smartwatch/pkgs/container/watch-dev)
 [![Platform](https://img.shields.io/badge/platform-linux%2Farm64-lightgrey)](https://github.com/manumnoha-sys/smartwatch)
+
+End-to-end project for building a **Samsung Galaxy Watch (Wear OS)** app, with a cloud backend and a Docker-based development environment designed for **Linux arm64** hosts.
 
 ---
 
-## Overview
+## Repository Structure
 
-Google does not publish Linux arm64 builds of Android Studio. This project provides a fully working alternative: a Docker image with **IntelliJ IDEA Community** (arm64 native), the **Android SDK**, and all necessary workarounds to build and deploy Wear OS apps from an arm64 machine.
+```
+.
+├── infra/          # Docker dev environment (arm64)
+├── watch-app/      # Wear OS application (Samsung Galaxy Watch)
+└── server/         # Cloud backend
+```
 
-| Component | Version |
-|-----------|---------|
-| Base OS | Ubuntu 22.04 (arm64) |
-| Java | OpenJDK 17 |
-| IDE | IntelliJ IDEA Community 2024.3.4 |
-| Android SDK | platforms 34 + 35, build-tools 35.0.0 |
-| Wear OS system image | `android-34;android-wear;arm64-v8a` |
-| adb | 28.0.2 (native arm64) |
+### `infra/` — Development Environment
+
+Docker image based on Ubuntu 22.04 with IntelliJ IDEA Community (arm64 native), the Android SDK, Wear OS system image, and all arm64 workarounds baked in. Published to `ghcr.io/manumnoha-sys/watch-dev`.
+
+See [`infra/SETUP.md`](infra/SETUP.md) for a full explanation of the arm64 workarounds.
+
+```bash
+bash infra/build.sh   # build the image
+bash infra/run.sh     # start the container
+bash infra/into.sh    # open a shell inside
+```
+
+### `watch-app/` — Wear OS App
+
+Android application targeting Samsung Galaxy Watch. Developed inside the `infra/` Docker container.
+
+### `server/` — Cloud Backend
+
+Backend service for data sync, push notifications, and the REST API consumed by the watch app.
+
+---
+
+## Quick Start
+
+```bash
+# 1. Start the dev container (pulls from GHCR if image not found locally)
+bash infra/run.sh
+
+# 2. Open a shell inside
+bash infra/into.sh
+
+# 3. Build the watch app
+cd ~/projects/watch-app && ./gradlew assembleDebug
+```
 
 ---
 
@@ -28,97 +58,3 @@ Google does not publish Linux arm64 builds of Android Studio. This project provi
 - Linux arm64 (aarch64) host
 - Docker 20+
 - X11 display (for IntelliJ IDEA GUI)
-
----
-
-## Quick Start
-
-```bash
-# 1. Build the image (first time ~30–40 min)
-bash build.sh
-
-# 2. Start the container
-bash run.sh
-
-# 3. Open a shell inside
-bash into.sh
-```
-
-Launch IntelliJ IDEA from inside the container or directly from the host:
-
-```bash
-docker exec -it watch-dev idea.sh
-```
-
----
-
-## Usage
-
-### Building your app
-
-Gradle is configured automatically. Create or clone a Wear OS project into `~/watch-projects/` on the host — it will be available at `~/projects/` inside the container.
-
-```bash
-# Inside the container
-cd ~/projects/MyWatchApp
-./gradlew assembleDebug
-```
-
-### Connecting a physical device
-
-Wi-Fi ADB (recommended — no hardware acceleration in emulator):
-
-```bash
-adb connect <watch-ip>:5555
-adb devices
-```
-
-### Creating a software emulator (slow, no KVM)
-
-```bash
-avdmanager create avd -n GalaxyWatch \
-    -k "system-images;android-34;android-wear;arm64-v8a"
-emulator -avd GalaxyWatch -no-window
-```
-
----
-
-## Persistent Volumes
-
-Data that survives container restarts:
-
-| Host path | Container path | Contents |
-|-----------|---------------|----------|
-| `~/watch-projects/` | `~/projects/` | Your app source code |
-| `~/.android-docker/` | `~/.android/` | AVDs, emulator state |
-| `~/.gradle-docker/` | `~/.gradle/` | Gradle build cache |
-
----
-
-## Publishing
-
-Requires a GitHub token with `write:packages` scope:
-
-```bash
-export GITHUB_TOKEN=<your_token>
-bash push.sh
-```
-
-The script will tag and push the Docker image to `ghcr.io/manumnoha-sys/watch-dev:latest` and push any updated files to this repository.
-
----
-
-## Architecture & Workarounds
-
-See [SETUP.md](SETUP.md) for a detailed explanation of:
-
-- Why IntelliJ IDEA is used instead of Android Studio
-- How the native arm64 `adb` is sourced
-- The `aapt2` QEMU wrapper (`build-tools` ships x86_64-only binaries)
-- The apt multiarch gotcha when adding `amd64` packages on an arm64 Ubuntu image
-
----
-
-## License
-
-MIT
