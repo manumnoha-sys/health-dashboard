@@ -38,7 +38,7 @@ def upgrade() -> None:
 
     # --- glucose_readings ---
     glucose_source_enum = sa.Enum("nightscout", "dexcom_share", name="glucose_source_enum")
-    glucose_source_enum.create(op.get_bind())
+    glucose_source_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "glucose_readings",
