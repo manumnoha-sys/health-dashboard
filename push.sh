@@ -6,11 +6,14 @@ REPO="manumnoha-sys/watch-dev"
 IMAGE_NAME="watch-dev"
 REGISTRY_IMAGE="${REGISTRY}/${REPO}:latest"
 
-# Require GITHUB_TOKEN env var
+# Load token from file if not already in environment
+if [ -z "${GITHUB_TOKEN}" ] && [ -f "${HOME}/.secrets/github_token" ]; then
+    GITHUB_TOKEN="$(cat "${HOME}/.secrets/github_token")"
+fi
+
 if [ -z "${GITHUB_TOKEN}" ]; then
     echo "Error: GITHUB_TOKEN is not set."
-    echo "Create a token at https://github.com/settings/tokens with scopes: write:packages, read:packages"
-    echo "Then run: export GITHUB_TOKEN=<your_token>"
+    echo "Either export it or save it to ~/.secrets/github_token"
     exit 1
 fi
 

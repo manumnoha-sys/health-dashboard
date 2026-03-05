@@ -4,7 +4,7 @@ set -e
 CONTAINER_NAME="watch-dev"
 IMAGE_NAME="watch-dev"
 REGISTRY_IMAGE="ghcr.io/manumnoha-sys/watch-dev:latest"
-CONTAINER_USER="manu.mohan"
+CONTAINER_USER="$(whoami)"
 PROJECTS_DIR="${HOME}/watch-projects"
 
 # Create persistent dirs on host if they don't exist

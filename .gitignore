@@ -1,0 +1,13 @@
+# Docker
+*.tar
+*.tar.gz
+
+# Shell history / temp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local secrets
+.env
+secrets/
