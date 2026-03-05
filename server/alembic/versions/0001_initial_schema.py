@@ -37,8 +37,13 @@ def upgrade() -> None:
     op.create_index("ix_watch_device_recorded", "watch_readings", ["device_id", "recorded_at"])
 
     # --- glucose_readings ---
-    glucose_source_enum = sa.Enum("nightscout", "dexcom_share", name="glucose_source_enum")
-    glucose_source_enum.create(op.get_bind(), checkfirst=True)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE glucose_source_enum AS ENUM ('nightscout', 'dexcom_share');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
 
     op.create_table(
         "glucose_readings",
