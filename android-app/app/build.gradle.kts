@@ -30,6 +30,7 @@ android {
         buildConfigField("String", "DEXCOM_PASSWORD", "\"${localProps["dexcomPassword"] ?: ""}\"")
         buildConfigField("String", "WODIFY_API_KEY", "\"${localProps["wodifyApiKey"] ?: ""}\"")
         buildConfigField("String", "WODIFY_ATHLETE_ID", "\"${localProps["wodifyAthleteId"] ?: ""}\"")
+        buildConfigField("String", "FITBIT_CLIENT_ID", "\"${localProps["fitbitClientId"] ?: ""}\"")
     }
 
     buildFeatures { buildConfig = true }

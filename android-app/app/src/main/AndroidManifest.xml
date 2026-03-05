@@ -37,6 +37,21 @@
             </intent-filter>
         </receiver>
 
+        <!-- Fitbit OAuth2 PKCE — handles authorization callback -->
+        <activity
+            android:name=".fitbit.FitbitAuthActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.manumnoha.healthbridge"
+                    android:host="fitbit-callback" />
+            </intent-filter>
+        </activity>
+
         <!-- Required by Health Connect: handles permission rationale -->
         <activity-alias
             android:name="ViewPermissionUsageActivity"
