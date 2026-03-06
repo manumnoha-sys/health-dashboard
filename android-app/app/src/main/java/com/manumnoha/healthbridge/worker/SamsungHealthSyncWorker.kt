@@ -20,6 +20,10 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "SamsungHealthSync"
 private const val DEVICE_ID = "samsung-health-phone"
+private const val PREFS = "samsung_health_sync"
+private const val KEY_LAST_SYNC = "last_sync_epoch_sec"
+// Overlap ensures we never miss a reading at the boundary between syncs
+private const val OVERLAP_SEC = 5 * 60L
 private val ISO = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC)
 
 class SamsungHealthSyncWorker(context: Context, params: WorkerParameters) :
@@ -40,8 +44,16 @@ class SamsungHealthSyncWorker(context: Context, params: WorkerParameters) :
         }
         Log.i(TAG, "Granted permissions: ${granted.size}/${com.manumnoha.healthbridge.samsung.HEALTH_CONNECT_PERMISSIONS.size}")
 
-        val since = Instant.now().minusSeconds(24 * 60 * 60) // last 24 hours
-        Log.i(TAG, "Reading samples since $since")
+        val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val lastSyncSec = prefs.getLong(KEY_LAST_SYNC, 0L)
+        val since: Instant = if (lastSyncSec == 0L) {
+            // First run: catch up on last 24 hours
+            Instant.now().minusSeconds(24 * 60 * 60)
+        } else {
+            // Subsequent runs: go back to last sync minus overlap to avoid gaps
+            Instant.ofEpochSecond(lastSyncSec - OVERLAP_SEC)
+        }
+        Log.i(TAG, "Reading samples since $since (lastSync=$lastSyncSec)")
 
         return try {
             // ── Sensor samples → /ingest/watch ──────────────────────────────
@@ -108,7 +120,7 @@ class SamsungHealthSyncWorker(context: Context, params: WorkerParameters) :
             val sleepSessions = reader.readSleep(since)
             Log.i(TAG, "Got ${sleepSessions.size} sleep sessions from Health Connect")
             if (sleepSessions.isNotEmpty()) {
-                val sessions = sleepSessions.map { s ->
+                val sleepList = sleepSessions.map { s ->
                     SleepSessionJson(
                         external_id = s.externalId,
                         start_time = ISO.format(s.startTime),
@@ -122,10 +134,13 @@ class SamsungHealthSyncWorker(context: Context, params: WorkerParameters) :
                         notes = s.notes,
                     )
                 }
-                val resp = ApiClient.service.ingestSleep(SleepIngestRequest(sessions))
+                val resp = ApiClient.service.ingestSleep(SleepIngestRequest(sleepList))
                 Log.i(TAG, "Sleep: accepted=${resp.accepted} updated=${resp.updated}")
             }
 
+            // Save last sync time on success
+            prefs.edit().putLong(KEY_LAST_SYNC, Instant.now().epochSecond).apply()
+            Log.i(TAG, "Sync complete, saved last sync time")
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Sync failed: ${e.message}")

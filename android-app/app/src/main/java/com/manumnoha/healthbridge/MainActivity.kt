@@ -27,6 +27,9 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
             if (granted.containsAll(HEALTH_CONNECT_PERMISSIONS)) {
                 Toast.makeText(this, "Health Connect connected!", Toast.LENGTH_SHORT).show()
+                // Kick off an immediate sync now that we have permissions
+                WorkManager.getInstance(this)
+                    .enqueue(OneTimeWorkRequestBuilder<SamsungHealthSyncWorker>().build())
             } else {
                 Toast.makeText(this, "Some Health Connect permissions denied", Toast.LENGTH_LONG).show()
             }
@@ -36,11 +39,24 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(createLayout())
+        // Auto-request Health Connect permissions if not yet granted
+        autoRequestHealthConnectIfNeeded()
     }
 
     override fun onResume() {
         super.onResume()
         setContentView(createLayout())
+    }
+
+    private fun autoRequestHealthConnectIfNeeded() {
+        lifecycleScope.launch {
+            val client = runCatching { HealthConnectClient.getOrCreate(this@MainActivity) }.getOrNull()
+                ?: return@launch
+            val granted = client.permissionController.getGrantedPermissions()
+            if (!granted.containsAll(HEALTH_CONNECT_PERMISSIONS)) {
+                requestPermissions.launch(HEALTH_CONNECT_PERMISSIONS)
+            }
+        }
     }
 
     private fun createLayout(): LinearLayout {
@@ -101,7 +117,7 @@ class MainActivity : AppCompatActivity() {
             Health Bridge is running.
 
             Syncing:
-            · Samsung Health / Galaxy Watch (every 30 min)
+            · Samsung Health / Galaxy Watch (every 30 min + on data change)
             · Fitbit: $fitbit (every 30 min)
             · Google Fit: ${if (GoogleFitTokenStore(this).hasTokens()) "connected" else "not connected"} (every 30 min)
             · CGM glucose (every 5 min)
