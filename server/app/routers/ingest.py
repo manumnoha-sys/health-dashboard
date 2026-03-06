@@ -7,7 +7,8 @@ from app.schemas.glucose import GlucoseIngestRequest, GlucoseIngestResponse
 from app.schemas.workout import WorkoutIngestRequest, WorkoutIngestResponse
 from app.schemas.sleep import SleepIngestRequest, SleepIngestResponse
 from app.schemas.wellness import WellnessIngestRequest, WellnessIngestResponse
-from app.services import watch_service, glucose_service, workout_service, sleep_service, wellness_service
+from app.schemas.tesla import TeslaIngestRequest, TeslaIngestResponse
+from app.services import watch_service, glucose_service, workout_service, sleep_service, wellness_service, tesla_service
 
 router = APIRouter(
     prefix="/ingest",
@@ -44,3 +45,9 @@ async def ingest_sleep(payload: SleepIngestRequest, db: AsyncSession = Depends(g
 async def ingest_wellness(payload: WellnessIngestRequest, db: AsyncSession = Depends(get_db)):
     result = await wellness_service.ingest_wellness(db, payload)
     return WellnessIngestResponse(**result)
+
+
+@router.post("/tesla", response_model=TeslaIngestResponse)
+async def ingest_tesla(payload: TeslaIngestRequest, db: AsyncSession = Depends(get_db)):
+    result = await tesla_service.ingest_tesla(db, payload)
+    return TeslaIngestResponse(**result)

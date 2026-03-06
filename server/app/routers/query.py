@@ -10,10 +10,12 @@ from app.models.glucose_reading import GlucoseReading
 from app.models.workout import Workout
 from app.models.sleep_session import SleepSession
 from app.models.wellness_snapshot import WellnessSnapshot
+from app.models.tesla_snapshot import TeslaSnapshot
 from app.schemas.query import HealthSnapshot, DailySummary
 from app.schemas.workout import WorkoutIn
 from app.schemas.sleep import SleepSessionOut
 from app.schemas.wellness import WellnessSnapshotOut
+from app.schemas.tesla import TeslaSnapshotOut
 
 router = APIRouter(
     prefix="/health",
@@ -241,3 +243,26 @@ async def get_daily_summary(
         workouts=[WorkoutIn.model_validate(w.__dict__) for w in workouts],
         sleep_sessions=[SleepSessionOut.model_validate(s.__dict__) for s in sleep_sessions],
     )
+
+
+@router.get("/tesla/latest", response_model=Optional[TeslaSnapshotOut])
+async def get_tesla_latest(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(TeslaSnapshot).order_by(TeslaSnapshot.recorded_at.desc()).limit(1)
+    )
+    row = result.scalar_one_or_none()
+    return TeslaSnapshotOut.model_validate(row.__dict__) if row else None
+
+
+@router.get("/tesla/history", response_model=list[TeslaSnapshotOut])
+async def get_tesla_history(
+    hours: int = Query(default=24, ge=1, le=168),
+    db: AsyncSession = Depends(get_db),
+):
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    result = await db.execute(
+        select(TeslaSnapshot)
+        .where(TeslaSnapshot.recorded_at >= since)
+        .order_by(TeslaSnapshot.recorded_at.asc())
+    )
+    return [TeslaSnapshotOut.model_validate(r.__dict__) for r in result.scalars().all()]
