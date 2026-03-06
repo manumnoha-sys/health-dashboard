@@ -5,6 +5,9 @@ on:
     - cron: '*/30 * * * *'   # every 30 minutes
   workflow_dispatch:           # allow manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   export:
     runs-on: self-hosted       # NUC runner — has LAN access to 192.168.1.26:8000
