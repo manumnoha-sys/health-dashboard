@@ -17,14 +17,21 @@ import com.manumnoha.healthbridge.worker.SamsungHealthSyncWorker
 
 private const val TAG = "BridgeService"
 
-// Health Connect writes new data here when Samsung Health syncs from the watch
-private val HC_URI: Uri = Uri.parse("content://androidx.health.connect.client.provider.HealthConnectProvider")
+// Candidate URIs to observe — varies by Android version and Health Connect implementation
+private val HC_URIS = listOf(
+    "content://com.google.android.gms.healthdata",               // GMS Health Connect (older)
+    "content://com.samsung.android.service.health",              // Samsung Health direct
+    "content://androidx.health.connect.client.provider.HealthConnectProvider", // Reference impl
+)
 
 class BridgeService : Service() {
 
-    private val hcObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+    private val handler = Handler(Looper.getMainLooper())
+    private val registeredObservers = mutableListOf<Pair<Uri, ContentObserver>>()
+
+    private fun makeObserver() = object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean) {
-            Log.i(TAG, "Health Connect data changed — triggering immediate sync")
+            Log.i(TAG, "Health data changed — triggering immediate sync")
             WorkManager.getInstance(applicationContext)
                 .enqueue(OneTimeWorkRequestBuilder<SamsungHealthSyncWorker>().build())
         }
@@ -34,17 +41,33 @@ class BridgeService : Service() {
         super.onCreate()
         createChannel()
         startForeground(NOTIF_ID, buildNotification())
-        // Watch for new Health Connect data (written by Samsung Health from Galaxy Watch)
-        runCatching {
-            contentResolver.registerContentObserver(HC_URI, true, hcObserver)
-            Log.i(TAG, "Registered Health Connect ContentObserver")
-        }.onFailure {
-            Log.w(TAG, "Could not register HC observer: ${it.message}")
+        registerObservers()
+    }
+
+    private fun registerObservers() {
+        var registered = 0
+        for (uriStr in HC_URIS) {
+            val uri = Uri.parse(uriStr)
+            val observer = makeObserver()
+            runCatching {
+                contentResolver.registerContentObserver(uri, true, observer)
+                registeredObservers += uri to observer
+                registered++
+                Log.i(TAG, "Registered observer: $uriStr")
+            }.onFailure {
+                Log.d(TAG, "Observer not available: $uriStr")
+            }
+        }
+        if (registered == 0) {
+            Log.i(TAG, "No HC observers available — relying on periodic sync")
         }
     }
 
     override fun onDestroy() {
-        runCatching { contentResolver.unregisterContentObserver(hcObserver) }
+        registeredObservers.forEach { (_, obs) ->
+            runCatching { contentResolver.unregisterContentObserver(obs) }
+        }
+        registeredObservers.clear()
         super.onDestroy()
     }
 

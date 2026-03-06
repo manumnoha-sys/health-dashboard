@@ -163,7 +163,7 @@ class SamsungHealthSyncWorker(context: Context, params: WorkerParameters) :
 
     companion object {
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<SamsungHealthSyncWorker>(30, TimeUnit.MINUTES)
+            val request = PeriodicWorkRequestBuilder<SamsungHealthSyncWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
