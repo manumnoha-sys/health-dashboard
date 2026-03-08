@@ -2,15 +2,15 @@ name: Export Health Data
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # every 30 minutes
-  workflow_dispatch:           # allow manual trigger
+    - cron: '*/5 * * * *'     # every 5 minutes
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   export:
-    runs-on: self-hosted       # NUC runner — has LAN access to 192.168.1.26:8000
+    runs-on: self-hosted
     timeout-minutes: 5
 
     steps:
@@ -19,7 +19,7 @@ jobs:
 
       - name: Export health data
         env:
-          HEALTH_API_URL: http://192.168.1.26:8000
+          HEALTH_API_URL: http://localhost:8000
           HEALTH_API_KEY: ${{ secrets.HEALTH_API_KEY }}
         run: python3 dashboard/export_data.py
 

@@ -3,11 +3,16 @@
 
 import json
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta, timezone
 
+REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 API_URL = os.environ.get("HEALTH_API_URL", "http://192.168.1.26:8000")
 API_KEY = os.environ.get("HEALTH_API_KEY", "ae43d94ce0f674df640831189d3462c0a5d51b87")
 OUT_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -33,6 +38,59 @@ def write(name, data):
     with open(path, "w") as f:
         json.dump(data, f, default=str)
     print(f"  OK   {name}")
+
+
+def _run(cmd, cwd=None):
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  WARN git: {result.stderr.strip()}", file=sys.stderr)
+    return result.returncode == 0
+
+
+def _push_to_gh_pages():
+    if not GITHUB_TOKEN:
+        print("  SKIP push (GITHUB_TOKEN not set)")
+        return
+
+    dashboard_dir = os.path.dirname(os.path.abspath(__file__))
+    worktree = tempfile.mkdtemp(prefix="gh-pages-")
+    try:
+        remote = f"https://{GITHUB_TOKEN}@github.com/manumnoha-sys/health-dashboard.git"
+        _run(["git", "remote", "set-url", "origin", remote], cwd=REPO_DIR)
+        _run(["git", "fetch", "origin", "gh-pages"], cwd=REPO_DIR)
+
+        # Remove stale worktree if exists
+        subprocess.run(["git", "worktree", "remove", worktree, "--force"],
+                       cwd=REPO_DIR, capture_output=True)
+        _run(["git", "worktree", "add", "--track", "-b", "gh-pages-deploy",
+              worktree, "origin/gh-pages"], cwd=REPO_DIR)
+
+        # Copy index.html + data/
+        shutil.copy(os.path.join(dashboard_dir, "index.html"), worktree)
+        data_src = os.path.join(dashboard_dir, "data")
+        data_dst = os.path.join(worktree, "data")
+        if os.path.exists(data_dst):
+            shutil.rmtree(data_dst)
+        shutil.copytree(data_src, data_dst)
+
+        _run(["git", "config", "user.email", "bot@health-dashboard"], cwd=worktree)
+        _run(["git", "config", "user.name", "Health Dashboard Bot"], cwd=worktree)
+        _run(["git", "add", "index.html", "data/"], cwd=worktree)
+
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        committed = _run(["git", "commit", "-m", f"data: export {ts}"], cwd=worktree)
+        if committed:
+            if _run(["git", "push", "origin", "HEAD:gh-pages"], cwd=worktree):
+                print("  OK   pushed to gh-pages")
+            else:
+                print("  WARN push failed", file=sys.stderr)
+        else:
+            print("  SKIP nothing changed")
+    finally:
+        subprocess.run(["git", "worktree", "remove", worktree, "--force"],
+                       cwd=REPO_DIR, capture_output=True)
+        subprocess.run(["git", "branch", "-D", "gh-pages-deploy"],
+                       cwd=REPO_DIR, capture_output=True)
 
 
 def main():
@@ -68,6 +126,9 @@ def main():
 
     print("Writing meta...")
     write("meta.json", {"updated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ")})
+
+    print("Pushing to GitHub Pages...")
+    _push_to_gh_pages()
 
     print("Done.")
 
