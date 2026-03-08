@@ -127,9 +127,6 @@ def main():
     print("Writing meta...")
     write("meta.json", {"updated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ")})
 
-    print("Pushing to GitHub Pages...")
-    _push_to_gh_pages()
-
     print("Done.")
 
 
