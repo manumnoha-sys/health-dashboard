@@ -128,6 +128,7 @@ def main():
     write("meta.json", {"updated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ")})
 
     print("Done.")
+    _push_to_gh_pages()
 
 
 if __name__ == "__main__":
